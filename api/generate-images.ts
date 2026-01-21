@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Generate images using gemini-2.5-flash-image-preview (supports image generation)
     for (let i = 0; i < numberOfImages; i++) {
       const result = await generateText({
-        model: google('gemini-2.5-flash-image-preview'),
+        model: google('gemini-2.5-flash-image'),
         messages: [{ role: 'user', content }],
         providerOptions: {
           google: {

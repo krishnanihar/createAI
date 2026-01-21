@@ -40,7 +40,7 @@ Keep unmasked areas unchanged.`
     ];
 
     const result = await generateText({
-      model: google('gemini-2.5-flash-image-preview'),
+      model: google('gemini-2.5-flash-image'),
       messages: [{ role: 'user', content }],
       providerOptions: {
         google: {
