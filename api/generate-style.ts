@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ai, STYLE_EXTRACTION_PROMPT, TEXT_TO_STYLE_PROMPT, styleSchema, ImageFile } from './_utils/gemini';
+import { getAI, STYLE_EXTRACTION_PROMPT, TEXT_TO_STYLE_PROMPT, styleSchema, ImageFile } from './_utils/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,6 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const ai = getAI();
+
     const { images, textDescription } = req.body as {
       images: ImageFile[];
       textDescription?: string;
@@ -66,8 +68,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch {
       return res.status(200).json({ styleDescription: jsonStr });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating style description:', error);
-    return res.status(500).json({ error: 'Failed to generate style description' });
+    return res.status(500).json({ error: error.message || 'Failed to generate style description' });
   }
 }

@@ -1,10 +1,18 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
-if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable not set");
-}
+// Lazy initialization to avoid module-level errors
+let _ai: GoogleGenAI | null = null;
 
-export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export function getAI(): GoogleGenAI {
+  if (!_ai) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable not set. Please add it in Vercel project settings.");
+    }
+    _ai = new GoogleGenAI({ apiKey });
+  }
+  return _ai;
+}
 
 export const GENERATION_INPUT_MAX_DIMENSION = 1024;
 
@@ -136,13 +144,6 @@ export interface ImageFile {
   name: string;
   base64: string;
   type: string;
-}
-
-export function resizeImageOnServer(file: ImageFile, maxDimension: number): Promise<ImageFile> {
-  // Server-side image resizing using sharp or similar would go here
-  // For now, we trust the client has resized images before sending
-  // This is a placeholder that returns the image as-is
-  return Promise.resolve(file);
 }
 
 export { Type, Modality };

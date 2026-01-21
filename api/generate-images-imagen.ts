@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ai } from './_utils/gemini';
+import { getAI } from './_utils/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,6 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const ai = getAI();
+
     const {
       prompt,
       numberOfImages = 1,
@@ -37,8 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const images = response.generatedImages.map(img => img.image.imageBytes);
     return res.status(200).json({ images });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating images with Imagen:', error);
-    return res.status(500).json({ error: 'Failed to generate images with Imagen' });
+    return res.status(500).json({ error: error.message || 'Failed to generate images with Imagen' });
   }
 }

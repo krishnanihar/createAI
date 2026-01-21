@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ai, SUGGESTION_GENERATION_PROMPT, Type, ImageFile } from './_utils/gemini';
+import { getAI, SUGGESTION_GENERATION_PROMPT, Type, ImageFile } from './_utils/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,6 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const ai = getAI();
+
     const {
       referenceImages,
       generatedImage,
@@ -75,8 +77,8 @@ The user's current negative prompt is: "${currentNegativePrompt}"
     const jsonStr = response.text.trim();
     const suggestions = JSON.parse(jsonStr);
     return res.status(200).json(suggestions);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating suggestions:', error);
-    return res.status(500).json({ error: 'Failed to generate suggestions' });
+    return res.status(500).json({ error: error.message || 'Failed to generate suggestions' });
   }
 }
