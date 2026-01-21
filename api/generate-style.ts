@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAI, STYLE_EXTRACTION_PROMPT, TEXT_TO_STYLE_PROMPT, styleSchema, ImageFile } from './_utils/gemini';
+import { getAI, getStyleSchema, STYLE_EXTRACTION_PROMPT, TEXT_TO_STYLE_PROMPT, ImageFile } from './_utils/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,7 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = getAI();
+    const ai = await getAI();
+    const styleSchema = await getStyleSchema();
 
     const { images, textDescription } = req.body as {
       images: ImageFile[];

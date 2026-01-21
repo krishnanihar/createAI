@@ -1,17 +1,34 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+// Dynamic imports to avoid module loading issues on Vercel
+let _genaiModule: any = null;
+let _ai: any = null;
 
-// Lazy initialization to avoid module-level errors
-let _ai: GoogleGenAI | null = null;
+async function loadGenAI() {
+  if (!_genaiModule) {
+    _genaiModule = await import("@google/genai");
+  }
+  return _genaiModule;
+}
 
-export function getAI(): GoogleGenAI {
+export async function getAI() {
   if (!_ai) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY environment variable not set. Please add it in Vercel project settings.");
     }
+    const { GoogleGenAI } = await loadGenAI();
     _ai = new GoogleGenAI({ apiKey });
   }
   return _ai;
+}
+
+export async function getType() {
+  const { Type } = await loadGenAI();
+  return Type;
+}
+
+export async function getModality() {
+  const { Modality } = await loadGenAI();
+  return Modality;
 }
 
 export const GENERATION_INPUT_MAX_DIMENSION = 1024;
@@ -36,7 +53,9 @@ Extract all relevant details directly from the provided text. Populate the corre
 
 The user's description is provided. Analyze it carefully and generate the JSON output based *only* on the given text.`;
 
-export const styleSchema = {
+export async function getStyleSchema() {
+  const Type = await getType();
+  return {
     type: Type.OBJECT,
     properties: {
       overallAesthetic: {
@@ -129,7 +148,8 @@ export const styleSchema = {
       }
     },
     required: ["overallAesthetic", "colorPalette", "materialAndTexture", "lighting", "composition", "postProcessingEffects"]
-};
+  };
+}
 
 export const SUGGESTION_GENERATION_PROMPT = `You are an exacting AI Art Director, and your sole purpose is to ensure perfect style replication. A junior artist has attempted to replicate a style defined by a set of REFERENCE images, producing a GENERATED image. The attempt has failed to capture the style's true essence.
 
@@ -145,5 +165,3 @@ export interface ImageFile {
   base64: string;
   type: string;
 }
-
-export { Type, Modality };

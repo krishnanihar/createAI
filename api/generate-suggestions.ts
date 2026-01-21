@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAI, SUGGESTION_GENERATION_PROMPT, Type, ImageFile } from './_utils/gemini';
+import { getAI, getType, SUGGESTION_GENERATION_PROMPT, ImageFile } from './_utils/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,7 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = getAI();
+    const ai = await getAI();
+    const Type = await getType();
 
     const {
       referenceImages,

@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = getAI();
+    const ai = await getAI();
 
     const {
       prompt,
