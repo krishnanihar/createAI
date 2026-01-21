@@ -64,26 +64,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const generatedImages: string[] = [];
 
-    // Generate images
+    // Generate images using gemini-2.5-flash-image-preview (supports image generation)
     for (let i = 0; i < numberOfImages; i++) {
       const result = await generateText({
-        model: google('gemini-2.0-flash'),
+        model: google('gemini-2.5-flash-image-preview'),
         messages: [{ role: 'user', content }],
         providerOptions: {
           google: {
-            responseModalities: ['IMAGE', 'TEXT'],
+            responseModalities: ['TEXT', 'IMAGE'],
           },
         },
       });
 
-      // Extract images from files array
+      // Extract images from files array (returned as uint8Array)
       if (result.files && result.files.length > 0) {
         for (const file of result.files) {
-          if (file.base64) {
-            generatedImages.push(file.base64);
-          } else if (file.uint8Array) {
+          if (file.uint8Array) {
             const base64 = Buffer.from(file.uint8Array).toString('base64');
             generatedImages.push(base64);
+          } else if (file.base64) {
+            generatedImages.push(file.base64);
           }
         }
       }

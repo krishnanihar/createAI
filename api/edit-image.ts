@@ -40,18 +40,23 @@ Keep unmasked areas unchanged.`
     ];
 
     const result = await generateText({
-      model: google('gemini-2.0-flash'),
+      model: google('gemini-2.5-flash-image-preview'),
       messages: [{ role: 'user', content }],
       providerOptions: {
         google: {
-          responseModalities: ['IMAGE', 'TEXT'],
+          responseModalities: ['TEXT', 'IMAGE'],
         },
       },
     });
 
     if (result.files && result.files.length > 0) {
       const file = result.files[0];
-      const base64 = file.base64 || (file.uint8Array ? Buffer.from(file.uint8Array).toString('base64') : null);
+      let base64: string | null = null;
+      if (file.uint8Array) {
+        base64 = Buffer.from(file.uint8Array).toString('base64');
+      } else if (file.base64) {
+        base64 = file.base64;
+      }
       if (base64) {
         return res.status(200).json({ image: base64 });
       }

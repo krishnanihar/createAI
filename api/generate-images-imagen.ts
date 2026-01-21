@@ -22,20 +22,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (let i = 0; i < numberOfImages; i++) {
       const result = await generateText({
-        model: google('gemini-2.0-flash'),
+        model: google('gemini-2.5-flash-image-preview'),
         messages: [{ role: 'user', content: prompt }],
         providerOptions: {
           google: {
-            responseModalities: ['IMAGE', 'TEXT'],
+            responseModalities: ['TEXT', 'IMAGE'],
           },
         },
       });
 
       if (result.files && result.files.length > 0) {
         for (const file of result.files) {
-          const base64 = file.base64 || (file.uint8Array ? Buffer.from(file.uint8Array).toString('base64') : null);
-          if (base64) {
+          if (file.uint8Array) {
+            const base64 = Buffer.from(file.uint8Array).toString('base64');
             generatedImages.push(base64);
+          } else if (file.base64) {
+            generatedImages.push(file.base64);
           }
         }
       }
