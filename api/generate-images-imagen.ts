@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (let i = 0; i < numberOfImages; i++) {
       const result = await generateText({
-        model: google('gemini-2.0-flash-exp'),
+        model: google('gemini-2.0-flash'),
         messages: [{ role: 'user', content: prompt }],
         providerOptions: {
           google: {
