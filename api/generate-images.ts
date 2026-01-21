@@ -1,5 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAI, getModality, ImageFile } from './_utils/gemini';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
+
+interface ImageFile {
+  name: string;
+  base64: string;
+  type: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,9 +14,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = await getAI();
-    const Modality = await getModality();
-
     const {
       prompt,
       referenceImages = [],
@@ -24,73 +28,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       subjectReferenceImages?: ImageFile[];
     };
 
-    const parts: any[] = [];
+    // Build content array
+    const content: any[] = [{ type: 'text', text: prompt }];
 
-    // 1. Add the main prompt/instructions
-    parts.push({ text: prompt });
-
-    // 2. Style Images
+    // Add style reference images
     if (referenceImages.length > 0) {
-      parts.push({ text: "--- STYLE REFERENCE IMAGES START --- \n The following images are the STYLE REFERENCES mentioned in the prompt. Use their art style." });
-      referenceImages.forEach(image => {
-        parts.push({
-          inlineData: { data: image.base64, mimeType: image.type }
+      content.push({ type: 'text', text: '--- STYLE REFERENCES ---' });
+      for (const img of referenceImages) {
+        content.push({
+          type: 'image',
+          image: `data:${img.type};base64,${img.base64}`,
         });
-      });
-      parts.push({ text: "--- STYLE REFERENCE IMAGES END ---" });
-    }
-
-    // 3. Subject Images
-    if (subjectReferenceImages.length > 0) {
-      parts.push({ text: "--- SUBJECT REFERENCE IMAGES START --- \n The following images are the SUBJECT REFERENCES mentioned in the prompt. Use their subject matter, features, and characteristics." });
-      subjectReferenceImages.forEach(image => {
-        parts.push({
-          inlineData: { data: image.base64, mimeType: image.type }
-        });
-      });
-      parts.push({ text: "--- SUBJECT REFERENCE IMAGES END ---" });
-    }
-
-    // 4. Composition Image
-    if (compositionImage) {
-      parts.push({ text: "--- COMPOSITION REFERENCE IMAGE START --- \n The following image is the COMPOSITION REFERENCE. Use its layout and perspective." });
-      parts.push({
-        inlineData: { data: compositionImage.base64, mimeType: compositionImage.type }
-      });
-      parts.push({ text: "--- COMPOSITION REFERENCE IMAGE END ---" });
-    }
-
-    const generationPromises = [];
-    for (let i = 0; i < numberOfImages; i++) {
-      generationPromises.push(ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: parts,
-        },
-        config: {
-          responseModalities: [Modality.IMAGE],
-        },
-      }));
-    }
-
-    const responses = await Promise.all(generationPromises);
-    const generatedImages: string[] = [];
-
-    for (const response of responses) {
-      if (response.candidates && response.candidates.length > 0 && response.candidates[0].content) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            generatedImages.push(part.inlineData.data);
-            break;
-          }
-        }
-      } else {
-        console.warn("A generation response was missing content, possibly due to safety filters.", response);
       }
     }
 
-    if (generatedImages.length === 0 && numberOfImages > 0) {
-      return res.status(500).json({ error: "Image generation failed to produce any images. The response may have been blocked due to safety settings." });
+    // Add subject reference images
+    if (subjectReferenceImages.length > 0) {
+      content.push({ type: 'text', text: '--- SUBJECT REFERENCES ---' });
+      for (const img of subjectReferenceImages) {
+        content.push({
+          type: 'image',
+          image: `data:${img.type};base64,${img.base64}`,
+        });
+      }
+    }
+
+    // Add composition image
+    if (compositionImage) {
+      content.push({ type: 'text', text: '--- COMPOSITION REFERENCE ---' });
+      content.push({
+        type: 'image',
+        image: `data:${compositionImage.type};base64,${compositionImage.base64}`,
+      });
+    }
+
+    const generatedImages: string[] = [];
+
+    // Generate images
+    for (let i = 0; i < numberOfImages; i++) {
+      const result = await generateText({
+        model: google('gemini-2.0-flash-exp'),
+        messages: [{ role: 'user', content }],
+        providerOptions: {
+          google: {
+            responseModalities: ['IMAGE', 'TEXT'],
+          },
+        },
+      });
+
+      // Extract images from files array
+      if (result.files && result.files.length > 0) {
+        for (const file of result.files) {
+          if (file.base64) {
+            generatedImages.push(file.base64);
+          } else if (file.uint8Array) {
+            const base64 = Buffer.from(file.uint8Array).toString('base64');
+            generatedImages.push(base64);
+          }
+        }
+      }
+    }
+
+    if (generatedImages.length === 0) {
+      return res.status(500).json({
+        error: "Image generation failed. Response may have been blocked by safety filters."
+      });
     }
 
     return res.status(200).json({ images: generatedImages });

@@ -1,5 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAI, getModality, ImageFile } from './_utils/gemini';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
+
+interface ImageFile {
+  name: string;
+  base64: string;
+  type: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,59 +14,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = await getAI();
-    const Modality = await getModality();
-
-    const {
-      prompt,
-      image,
-      mask,
-      styleDescription
-    } = req.body as {
+    const { prompt, image, mask, styleDescription } = req.body as {
       prompt: string;
       image: ImageFile;
       mask: ImageFile;
       styleDescription: string;
     };
 
-    const fullPrompt = `**Task**: Edit the provided image within the masked area.
-
-**Style Mandate**: The edits MUST EXACTLY match the artistic style of the unmasked parts of the image. The style description below is a guide to help understand the key elements of the style. The original image is the definitive source for the style.
-
-**Style Description (from AI analysis)**:
-${styleDescription}
-
-**Edit Instruction**: Apply the following instruction to the masked area ONLY: "${prompt}".
-
-The rest of the image outside the mask must remain completely unchanged.`;
-
-    const imagePart = { inlineData: { data: image.base64, mimeType: image.type } };
-    const maskPart = { inlineData: { data: mask.base64, mimeType: mask.type } };
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          { text: fullPrompt },
-          imagePart,
-          maskPart
-        ]
+    const content: any[] = [
+      {
+        type: 'text',
+        text: `Edit the image within the masked area. Match the artistic style of the unmasked parts.
+Style: ${styleDescription}
+Edit instruction: ${prompt}
+Keep unmasked areas unchanged.`
       },
-      config: {
-        responseModalities: [Modality.IMAGE],
+      {
+        type: 'image',
+        image: `data:${image.type};base64,${image.base64}`,
+      },
+      {
+        type: 'image',
+        image: `data:${mask.type};base64,${mask.base64}`,
+      },
+    ];
+
+    const result = await generateText({
+      model: google('gemini-2.0-flash-exp'),
+      messages: [{ role: 'user', content }],
+      providerOptions: {
+        google: {
+          responseModalities: ['IMAGE', 'TEXT'],
+        },
       },
     });
 
-    if (response.candidates && response.candidates.length > 0 && response.candidates[0].content) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return res.status(200).json({ image: part.inlineData.data });
-        }
+    if (result.files && result.files.length > 0) {
+      const file = result.files[0];
+      const base64 = file.base64 || (file.uint8Array ? Buffer.from(file.uint8Array).toString('base64') : null);
+      if (base64) {
+        return res.status(200).json({ image: base64 });
       }
     }
 
-    console.error("Image editing failed. Response might have been blocked.", response);
-    return res.status(500).json({ error: "Image editing failed to produce an image. The response may have been blocked due to safety settings." });
+    return res.status(500).json({ error: "Image editing failed. Response may have been blocked." });
   } catch (error: any) {
     console.error('Error editing image:', error);
     return res.status(500).json({ error: error.message || 'Failed to edit image' });

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAI } from './_utils/gemini';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,13 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = await getAI();
-
-    const {
-      prompt,
-      numberOfImages = 1,
-      aspectRatio = '1:1'
-    } = req.body as {
+    const { prompt, numberOfImages = 1 } = req.body as {
       prompt: string;
       numberOfImages?: number;
       aspectRatio?: string;
@@ -23,24 +18,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
-      prompt: prompt,
-      config: {
-        numberOfImages: numberOfImages,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: aspectRatio as "1:1" | "3:4" | "4:3" | "9:16" | "16:9",
-      },
-    });
+    const generatedImages: string[] = [];
 
-    if (!response.generatedImages || response.generatedImages.length === 0) {
-      return res.status(500).json({ error: "Imagen generation failed to produce any images. The prompt may have been blocked." });
+    for (let i = 0; i < numberOfImages; i++) {
+      const result = await generateText({
+        model: google('gemini-2.0-flash-exp'),
+        messages: [{ role: 'user', content: prompt }],
+        providerOptions: {
+          google: {
+            responseModalities: ['IMAGE', 'TEXT'],
+          },
+        },
+      });
+
+      if (result.files && result.files.length > 0) {
+        for (const file of result.files) {
+          const base64 = file.base64 || (file.uint8Array ? Buffer.from(file.uint8Array).toString('base64') : null);
+          if (base64) {
+            generatedImages.push(base64);
+          }
+        }
+      }
     }
 
-    const images = response.generatedImages.map(img => img.image.imageBytes);
-    return res.status(200).json({ images });
+    if (generatedImages.length === 0) {
+      return res.status(500).json({ error: "Image generation failed. Prompt may have been blocked." });
+    }
+
+    return res.status(200).json({ images: generatedImages });
   } catch (error: any) {
-    console.error('Error generating images with Imagen:', error);
-    return res.status(500).json({ error: error.message || 'Failed to generate images with Imagen' });
+    console.error('Error generating images:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate images' });
   }
 }
