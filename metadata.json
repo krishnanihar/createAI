@@ -1,0 +1,5 @@
+{
+  "name": "Create.AI",
+  "description": "An AI assistant that helps users generate new images in the same art style as their uploaded assets. Upload reference images, get an AI-generated style description, and then create new art with your unique aesthetic.",
+  "requestFramePermissions": []
+}
